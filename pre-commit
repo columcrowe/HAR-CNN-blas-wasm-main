@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Pre-commit hook to scan code comments
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$|\.c$|\.h$') 
+
+for file in $STAGED; do
+    if grep -q "XXX:" "$file"; then
+        echo "ERROR: $file contains 'HAXXX:' — commit blocked!"
+        exit 1
+    fi
+    if grep -q "TODO:" "$file"; then
+        echo "WARNING: $file contains 'TODO:'"
+    fi
+done
+
+exit 0

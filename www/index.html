@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>HAR Classification BLAS Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+	<div id="info">
+		<div>
+			<label for="FileInput" class="button-label">Upload File</label>
+			<input type="file" id="FileInput" accept=".csv" style="display: none;" />
+			<progress id="progressBar" value="0" max="100" style="width: 400px;"></progress>
+		  <span id="progressText"></span>		
+		</div>
+	</div>
+	<div id="container">
+		<div id="draw"></div> <!-- populated by drawSignal !-->
+		<div id="hist"></div>		
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
+		<script src="https://leeoniya.github.io/uPlot/dist/uPlot.iife.min.js"></script>
+		<link
+			rel="stylesheet"
+			href="https://leeoniya.github.io/uPlot/dist/uPlot.min.css"
+		/>
+  <script>
+    var Module = {};
+    Module.onRuntimeInitialized = () => {
+      doLoadData();
+    };
+    Module.onAbort = () => {
+      doAbort();
+    };
+  </script>
+  <script src="mnist.js"></script>
+  <script src="index.js"></script>
+</body>
+
+</html>
