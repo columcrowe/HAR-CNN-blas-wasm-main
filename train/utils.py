@@ -2,7 +2,7 @@ import argparse
 from skdh.io import ReadCwa
 import pandas as pd
 import numpy as np
-from scipy.signal import butter, besselap, zpk2ss, ss2tf, lp2lp, lfilter, filtfilt, resample
+from scipy.signal import butter, besselap, zpk2ss, ss2tf, lp2lp, lfilter, filtfilt, resample, resample_poly
 import os
 
 def resample_2(accel_array, data_time, resampling_frequency=50.0):
@@ -10,10 +10,23 @@ def resample_2(accel_array, data_time, resampling_frequency=50.0):
     N = len(data_time);
     #Get sampling_frequency
     dT = np.median(np.diff(data_time,axis=0));
-    fs = float(1 / dT); #raw data sampling rate (Hz)
+    fs = 1 / dT; #raw data sampling rate (Hz)
     dfs = resampling_frequency;
     N = round((dfs/fs)*N);
     accel_array = resample(accel_array, N);
+    fs = dfs;
+    dT = 1.0 / fs;
+    time_array = np.linspace(0.0, N*dT, N);
+    return accel_array, time_array
+def resample_2fast(accel_array, data_time, resampling_frequency=50.0):
+    #Resample to resampling_frequency (Hz)
+    N = len(data_time);
+    #Get sampling_frequency
+    dT = np.median(np.diff(data_time,axis=0));
+    fs = 1 / dT; #raw data sampling rate (Hz)
+    dfs = resampling_frequency;
+    N = round((dfs/fs)*N);
+    accel_array = resample_poly(accel_array, int(resampling_frequency), int(round(fs)), axis=0)
     fs = dfs;
     dT = 1.0 / fs;
     time_array = np.linspace(0.0, N*dT, N);
@@ -95,26 +108,20 @@ def convert_cwa_to_csv(input_file):
     accel_array = np.asarray(data.get('accel'))
     time_array = np.asarray(data.get('time'))
     
-    #Align to standard axis
-    #n=1;
-    #accel_array = [0:50*60*60*n,:] #crop to n hrs for now
-    accel_array = standardize_sensor_orientation(accel_array)
+    #TODO: crop to n hrs for now
+    # n=1;
+    # accel_array = accel_array[0:50*60*60*n,:] 
 
     #Resample to resampling_frequency (Hz)
     fs = 50.0;        
-    accel_array, time_array = resample_2(accel_array, time_array, resampling_frequency=fs)
-    
-    #Zero-phase band-pass Nth-order Butterworth filter (col-coh Hz)
-    #col=0.25;
-    #coh=20;
-    #n_order=3;
-    #accel_array = BPfilterButter(accel_array,fs,order=n_order,cutoff_low=col,cutoff_high=coh) 
+    accel_array, time_array = resample_2fast(accel_array, time_array, resampling_frequency=fs)
        
-    df = pd.DataFrame(accel_array, columns=['total_acc_x', 'total_acc_y', 'total_acc_z'])
+    df = pd.DataFrame(accel_array, columns=['acc_x', 'acc_y', 'acc_z'])
     filename = f"accsamp.csv"
     filepath = os.path.join(os.getcwd(), filename)   
     #Save to csv in chunks so js doesn't choke on header
-    chunk_size = 128*100 #TODO: hardcoded for now
+    ws=128
+    chunk_size = ws*100 #TODO: hardcoded for now
     for i in range(0, len(df), chunk_size):
         df.iloc[i:i+chunk_size].to_csv(
             filepath,
@@ -131,3 +138,26 @@ def convert_cwa_to_csv(input_file):
 def preprocess(acc):
     # Pass
     return acc
+
+def save_A(filename, numpy_array):
+    if numpy_array.ndim == 1:
+        numpy_array = numpy_array[:, None, None]
+    elif numpy_array.ndim == 2:
+        numpy_array = numpy_array[:, :, None]
+    elif numpy_array.ndim == 3:
+        numpy_array = numpy_array[:, :, :]
+    else:
+        print("check arr shape")
+        return
+    print(numpy_array.shape)        
+    A = np.zeros((numpy_array.shape[0], numpy_array.shape[1], numpy_array.shape[2]), dtype = np.float32, order = 'F')
+    A[0:numpy_array.shape[0],0:numpy_array.shape[1],0:numpy_array.shape[2]] = numpy_array[:, :, :]
+    with open(filename, "wb") as binary_file:
+        binary_file.write(A.tobytes('F'))
+    
+# Load weights and biases to model
+def load_A(filename, shape):
+    with open(filename, "rb") as f:
+        numpy_array = np.frombuffer(f.read(), dtype=np.float32, count=np.prod(shape))
+        numpy_array = numpy_array.reshape(shape, order='F')
+    return numpy_array

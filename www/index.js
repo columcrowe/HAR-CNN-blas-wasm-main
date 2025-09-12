@@ -1,25 +1,41 @@
 document.getElementById('FileInput').addEventListener('change', handleFileUpload);
 const preds = [];
-const labelNames = [
+/* const labelNames = [
 	"light", 
 	"moderate-vigorous", 
 	"sedentary", 
 	"sleep"
 ];
-const n_outputs = labelNames.length
 const labelColors = {
-  light:     						"#009E73",  // Green
-  moderate-vigorous:    "#FF0000",  // Red
-  sedentary:   					"#FFB000",  // Yellow
-  sleep: 								"#648FFF"   // Blue  			
+  "light":     						"#009E73",  // Green
+  "moderate-vigorous":    "#FF0000",  // Red
+  "sedentary":   					"#FFB000",  // Yellow
+  "sleep": 								"#648FFF"   // Blue  			
+}; */
+const labelNames = [
+	"WALKING",
+	"WALKING_UPSTAIRS",
+	"WALKING_DOWNSTAIRS",
+	"SITTING",
+	"STANDING",
+	"LAYING"
+];
+const labelColors = {
+  "WALKING":     						"#009E73",  // Green
+  "WALKING_UPSTAIRS":  			"#FF0000",  // Red
+  "WALKING_DOWNSTAIRS":   	"#FFB000",  // Yellow
+  "SITTING": 								"#648FFF",  // Blue
+	"STANDING": 							"#FF7F0E",  // Orange
+	"LAYING":   							"#800080"   // Purple
 };
+const n_outputs = labelNames.length;
 const expectedHeader = [
   'acc_x', 'acc_y', 'acc_z',
 ];
 const ws = 2.56;
 const sample_freq = 50;
-const window_size = 128 // ws/(1/sample_freq); //128;
-const step_size = window_size;//64;
+const window_size = 128;
+const step_size = window_size;
 const n_channels = 3;
 async function handleFileUpload(event) {
   preds.length = 0; // Clear old predictions
@@ -83,10 +99,10 @@ async function handleFileUpload(event) {
 function drawSignal(rows) {
   // Convert data to uPlot format for plotting
   const timeArray = rows.map((_, i) => i);
-  const xData = rows.map(row => row[0]); // total_acc_x
-  const yData = rows.map(row => row[1]); // total_acc_y  
-  const zData = rows.map(row => row[2]); // total_acc_z
-  const data = [timeArray, xData, yData, zData];
+  const acc_x = rows.map(row => row[0]);
+  const acc_y = rows.map(row => row[1]);
+  const acc_z = rows.map(row => row[2]);
+  const accArray = [acc_x, acc_y, acc_z];
 
   // Draw hook
   const drawHk = [
@@ -106,10 +122,10 @@ function drawSignal(rows) {
       u.ctx.globalAlpha = 1.0;
       u.ctx.textAlign = "left";
       u.ctx.fillStyle = "black";
-      u.ctx.fillText("Accelerometer Data", 2, 15);
-      u.ctx.fillText("total_acc_x", 2, u.valToPos(xData[0], "y", true));
-      u.ctx.fillText("total_acc_y", 2, u.valToPos(yData[0], "y", true)); 
-      u.ctx.fillText("total_acc_z", 2, u.valToPos(zData[0], "y", true));
+      u.ctx.fillText("accel", 2, 15);
+      u.ctx.fillText("acc_x", 2, u.valToPos(acc_x[0], "y", true));
+      u.ctx.fillText("acc_y", 2, u.valToPos(acc_y[0], "y", true)); 
+      u.ctx.fillText("acc_z", 2, u.valToPos(acc_z[0], "y", true));
     }
   ];
   // wheel scroll zoom
@@ -126,8 +142,8 @@ function drawSignal(rows) {
             (u.cursor.left / rect.width) * nxRange;
           if (nxMin < 0) nxMin = 0;
           let nxMax = nxMin + nxRange;
-          if (nxMax > u.data[0][u.data[0].length - 1])
-            nxMax = u.data[0][u.data[0].length - 1];
+          if (nxMax > u.timeArray[timeArray.length - 1])
+            nxMax = u.timeArray[timeArray.length - 1];
           u.setScale("x", { min: nxMin, max: nxMax });
         },
         { passive: true }
@@ -180,7 +196,7 @@ function drawSignal(rows) {
 
   const div = document.querySelector("#draw");
   while (div.firstChild) div.removeChild(div.firstChild);
-  const plot = new uPlot(opts, data, div);
+  const plot = new uPlot(opts, [timeArray, ...[acc_x, acc_y, acc_z]], div);
   
   // Simple manual legend
   const legendDiv = document.createElement("div");
@@ -239,81 +255,83 @@ function doLoadData() {
       let response = await fetch("./conv1_weight.data");
       if (!response.ok) throw new Error(`Problem downloading conv1_weight (${response.status})`);
       let bytes = await response.arrayBuffer();
-      let floats = new Float64Array(bytes);
+      let floats = new Float32Array(bytes);
       conv1_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, conv1_w_ptr / 8);
+      Module.HEAPF32.set(floats, conv1_w_ptr / 4);
+			//console.log("len:", floats.length);
+			//console.log("first 10:", floats.slice(0,10)); check against test.py
 
       // Load conv1 bias
       response = await fetch("./conv1_bias.data");
       if (!response.ok) throw new Error(`Problem downloading conv1_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       conv1_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, conv1_b_ptr / 8);
+      Module.HEAPF32.set(floats, conv1_b_ptr / 4);
 
       // Load conv2 weights
       response = await fetch("./conv2_weight.data");
       if (!response.ok) throw new Error(`Problem downloading conv2_weight (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       conv2_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, conv2_w_ptr / 8);
+      Module.HEAPF32.set(floats, conv2_w_ptr / 4);
 
       // Load conv2 bias
       response = await fetch("./conv2_bias.data");
       if (!response.ok) throw new Error(`Problem downloading conv2_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       conv2_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, conv2_b_ptr / 8);
+      Module.HEAPF32.set(floats, conv2_b_ptr / 4);
 			
       // Load conv3 weights
       response = await fetch("./conv3_weight.data");
       if (!response.ok) throw new Error(`Problem downloading conv3_weight (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       conv3_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, conv3_w_ptr / 8);
+      Module.HEAPF32.set(floats, conv3_w_ptr / 4);
 
       // Load conv3 bias
       response = await fetch("./conv3_bias.data");
       if (!response.ok) throw new Error(`Problem downloading conv3_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       conv3_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, conv3_b_ptr / 8);
+      Module.HEAPF32.set(floats, conv3_b_ptr / 4);
 
       // Load fc1 weights
       response = await fetch("./fc1_weight.data");
       if (!response.ok) throw new Error(`Problem downloading fc1_weight (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       fc1_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, fc1_w_ptr / 8);
+      Module.HEAPF32.set(floats, fc1_w_ptr / 4);
 
       // Load fc1 bias
       response = await fetch("./fc1_bias.data");
       if (!response.ok) throw new Error(`Problem downloading fc1_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       fc1_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, fc1_b_ptr / 8);
+      Module.HEAPF32.set(floats, fc1_b_ptr / 4);
 
       // Load fc2 weights
       response = await fetch("./fc2_weight.data");
       if (!response.ok) throw new Error(`Problem downloading fc2_weight (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       fc2_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, fc2_w_ptr / 8);
+      Module.HEAPF32.set(floats, fc2_w_ptr / 4);
 
       // Load fc2 bias
       response = await fetch("./fc2_bias.data");
       if (!response.ok) throw new Error(`Problem downloading fc2_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float64Array(bytes);
+      floats = new Float32Array(bytes);
       fc2_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF64.set(floats, fc2_b_ptr / 8);
+      Module.HEAPF32.set(floats, fc2_b_ptr / 4);
 
       // Ready to start
 
@@ -332,7 +350,7 @@ function doSegmentation(data, windowSize = 128, stepSize = 128) {
   return segments;
 }
 
-function doClassify(image) {
+function doClassify(sequence) {
   if (
     conv1_w_ptr < 0 || conv1_b_ptr < 0 ||
     conv2_w_ptr < 0 || conv2_b_ptr < 0 ||
@@ -340,25 +358,19 @@ function doClassify(image) {
     fc1_w_ptr < 0 || fc1_b_ptr < 0 ||
 		fc2_w_ptr < 0 || fc2_b_ptr < 0 
   ) {
-    throw new Error("Can't classify image. Weights not downloaded yet.");
+    throw new Error("Can't classify input. Weights not downloaded yet.");
   }
 
-  //scaleData = processImage();
-
-  // Copy image data to Wasm memory
-  //const image = new Float64Array(window_size * n_channels * 8);
-  //image.forEach((_, i) => {
-  //  image[i] = 1. - scaleData.data[i * 4] / 255.;
-  //});
-  const image_ptr = Module._malloc(window_size * n_channels * 8);
-  Module.HEAPF64.set(image, image_ptr / 8);
+  // Copy data to contiguous Wasm memory
+  const sequence_ptr = Module._malloc(window_size * n_channels * 4);
+  Module.HEAPF32.set(sequence, sequence_ptr / 4); //Module.HEAPF32 and 64 are 1D flat typed arrays
 
   // Call Wasm classifier and store results
-  const out_ptr = Module._malloc(n_outputs*8);
-  Module._classifier(conv1_w_ptr, conv1_b_ptr, conv2_w_ptr, conv2_b_ptr, conv3_w_ptr, conv3_b_ptr, fc1_w_ptr, fc1_b_ptr, fc2_w_ptr, fc2_b_ptr, image_ptr, out_ptr);
+  const out_ptr = Module._malloc(n_outputs*4);
+  Module._classifier(conv1_w_ptr, conv1_b_ptr, conv2_w_ptr, conv2_b_ptr, conv3_w_ptr, conv3_b_ptr, fc1_w_ptr, fc1_b_ptr, fc2_w_ptr, fc2_b_ptr, sequence_ptr, out_ptr);
 
   // Draw results as a histogram
-  const out_bytes = Module.HEAPF64.subarray(out_ptr / 8, (out_ptr / 8) + n_outputs);
+  const out_bytes = Module.HEAPF32.subarray(out_ptr / 4, (out_ptr / 4) + n_outputs);
   //console.log("Output values:", out_bytes);
   //drawHist(out_bytes);
   
@@ -366,7 +378,7 @@ function doClassify(image) {
   output = output.indexOf(Math.max(...output));
 
   // Wasm memory cleanup
-  Module._free(image_ptr);
+  Module._free(sequence_ptr);
   Module._free(out_ptr);
   
   return output;

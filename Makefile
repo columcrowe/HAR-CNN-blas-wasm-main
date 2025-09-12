@@ -14,7 +14,7 @@ EMCC_FLAGS := \
     -sALLOW_MEMORY_GROWTH=1 \
     --no-entry \
     -sEXPORTED_FUNCTIONS=['_classifier','_malloc','_free'] \
-    -sEXPORTED_RUNTIME_METHODS=['HEAPF64']
+    -sEXPORTED_RUNTIME_METHODS=['HEAPF32']
 
 all: $(JS_OUT)
 

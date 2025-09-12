@@ -1,26 +1,15 @@
-SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
-!
-!   -- Reference BLAS level3 routine --
-!   -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
-!   -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
-!
-!   .. Scalar Arguments ..
-    DOUBLE PRECISION ALPHA,BETA
+!GEMM and GEMV src: http://www.netlib.org/lapack/explore-html/
+SUBROUTINE SGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
+    REAL ALPHA,BETA
     INTEGER K,LDA,LDB,LDC,M,N
     CHARACTER TRANSA,TRANSB
-!   .. Array Arguments ..
-    DOUBLE PRECISION A(LDA,*),B(LDB,*),C(LDC,*)
-!   .. Local Scalars ..
-    DOUBLE PRECISION TEMP
+    REAL A(LDA,*),B(LDB,*),C(LDC,*)
+    REAL TEMP
     INTEGER I,INFO,J,L,NROWA,NROWB
     LOGICAL NOTA,NOTB
-!   .. Parameters ..
-    DOUBLE PRECISION ONE,ZERO
-    PARAMETER (ONE=1.0D+0,ZERO=0.0D+0)
+    REAL ONE,ZERO
+    PARAMETER (ONE=1.0e0,ZERO=0.0e0)
     INTRINSIC MAX
-!
-!   Set NOTA and NOTB as true if A and B respectively are not transposed
-!   and set NROWA and NROWB as the number of rows of A and B respectively.
 	NOTA = TRANSA == 'N'
 	NOTB = TRANSB == 'N'
     IF (NOTA) THEN
@@ -33,8 +22,6 @@ SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
     ELSE
         NROWB = N
     END IF
-!
-!   Test the input parameters.
     INFO = 0
     IF ((.NOT.NOTA) .AND. (TRANSA /= 'C') .AND. (TRANSA /= 'T')) THEN
         INFO = 1
@@ -57,11 +44,7 @@ SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
         PRINT *, "DGEMM: Error occurred, INFO ", INFO
         RETURN
     END IF
-!
-!   Quick return if possible.
     IF ((M.EQ.0) .OR. (N.EQ.0) .OR. (((ALPHA.EQ.ZERO).OR.(K.EQ.0)).AND.(BETA.EQ.ONE))) RETURN
-!
-!   And if alpha.eq.zero.
     IF (ALPHA.EQ.ZERO) THEN
         IF (BETA.EQ.ZERO) THEN
             DO 20 J = 1,N
@@ -78,12 +61,8 @@ SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
         END IF
         RETURN
     END IF
-!
-!   Start the operations.
     IF (NOTB) THEN
         IF (NOTA) THEN
-!
-!         Form  C := alpha*A*B + beta*C
             DO 90 J = 1,N
                 IF (BETA.EQ.ZERO) THEN
                     DO 50 I = 1,M
@@ -102,8 +81,6 @@ SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
 80              CONTINUE
 90          CONTINUE
         ELSE
-!
-!         Form  C := alpha*A**T*B + beta*C
             DO 120 J = 1,N
                 DO 110 I = 1,M
                     TEMP = ZERO
@@ -120,8 +97,6 @@ SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
         END IF
     ELSE
         IF (NOTA) THEN
-!
-!         Form  C := alpha*A*B**T + beta*C
             DO 170 J = 1,N
                 IF (BETA.EQ.ZERO) THEN
                     DO 130 I = 1,M
@@ -140,8 +115,6 @@ SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
 160             CONTINUE
 170         CONTINUE
         ELSE
-!
-!         Form  C := alpha*A**T*B**T + beta*C
             DO 200 J = 1,N
                 DO 190 I = 1,M
                     TEMP = ZERO
@@ -157,21 +130,18 @@ SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
 200         CONTINUE
         END IF
     END IF
-!
     RETURN
-!
-!   End of DGEMM
 END
 
   
-SUBROUTINE DGEMV(TRANS,M,N,ALPHA,A,LDA,X,INCX,BETA,Y,INCY)
-    DOUBLE PRECISION ALPHA,BETA
+SUBROUTINE SGEMV(TRANS,M,N,ALPHA,A,LDA,X,INCX,BETA,Y,INCY)
+    REAL ALPHA,BETA
     INTEGER INCX,INCY,LDA,M,N
     CHARACTER TRANS
-    DOUBLE PRECISION A(LDA,*),X(*),Y(*)
-    DOUBLE PRECISION ONE,ZERO
-    PARAMETER (ONE=1.0D+0,ZERO=0.0D+0)
-    DOUBLE PRECISION TEMP
+    REAL A(LDA,*),X(*),Y(*)
+    REAL ONE,ZERO
+    PARAMETER (ONE=1.0e0,ZERO=0.0e0)
+    REAL TEMP
     INTEGER I,INFO,IX,IY,J,JX,JY,KX,KY,LENX,LENY
     INTRINSIC MAX
     INFO = 0
@@ -288,52 +258,52 @@ END
 SUBROUTINE classifier(conv1_w, conv1_b, conv2_w, conv2_b, conv3_w, conv3_b, fc1_w, fc1_b, fc2_w, fc2_b, sequence, classify)
     IMPLICIT NONE
 		INTEGER, PARAMETER :: n_channels = 3
-		INTEGER, PARAMETER :: window_size = 1500 !128
+		INTEGER, PARAMETER :: window_size = 128
     INTEGER, PARAMETER :: seq_len = window_size * n_channels
     INTEGER, PARAMETER :: img_len = window_size !seq_len
     INTEGER, PARAMETER :: conv1_out_ch = 64
     INTEGER, PARAMETER :: conv2_out_ch = 64
     INTEGER, PARAMETER :: conv3_out_ch = 64
-    INTEGER, PARAMETER :: conv_kernel = 11
-    INTEGER, PARAMETER :: stride_length = 5
+    INTEGER, PARAMETER :: conv_kernel = 3
+    INTEGER, PARAMETER :: stride_length = 1
     INTEGER, PARAMETER :: pool_size = 2
     INTEGER, PARAMETER :: fc1_out = 64
-    INTEGER, PARAMETER :: fc2_out = 4
-    INTEGER, PARAMETER :: conv1_out_len = img_len - conv_kernel + 1        ! 
-    INTEGER, PARAMETER :: conv2_out_len = conv1_out_len - conv_kernel + 1  ! 
-    INTEGER, PARAMETER :: conv3_out_len = conv2_out_len - conv_kernel + 1  !
-    INTEGER, PARAMETER :: pooled_len = conv3_out_len / pool_size           ! 
+    INTEGER, PARAMETER :: fc2_out = 6
+    INTEGER, PARAMETER :: conv1_out_len = img_len - conv_kernel + 1
+    INTEGER, PARAMETER :: conv2_out_len = conv1_out_len - conv_kernel + 1
+    INTEGER, PARAMETER :: conv3_out_len = conv2_out_len - conv_kernel + 1
+    INTEGER, PARAMETER :: pooled_len = conv3_out_len / pool_size
     INTEGER, PARAMETER :: fc_in = 64 !GAP !conv3_out_ch * pooled_len
 
-    DOUBLE PRECISION, INTENT(IN) :: conv1_w(conv1_out_ch, n_channels, conv_kernel)  ! (out_channels, in_channels, kernel)
-    DOUBLE PRECISION, INTENT(IN) :: conv1_b(conv1_out_ch, 1, 1)
-    DOUBLE PRECISION, INTENT(IN) :: conv2_w(conv2_out_ch, conv1_out_ch, conv_kernel)
-    DOUBLE PRECISION, INTENT(IN) :: conv2_b(conv2_out_ch, 1, 1)
-    DOUBLE PRECISION, INTENT(IN) :: conv3_w(conv3_out_ch, conv2_out_ch, conv_kernel)
-    DOUBLE PRECISION, INTENT(IN) :: conv3_b(conv3_out_ch, 1, 1)
-    DOUBLE PRECISION, INTENT(IN) :: fc1_w(fc_in, fc1_out, 1)
-    DOUBLE PRECISION, INTENT(IN) :: fc1_b(fc1_out, 1, 1)
-    DOUBLE PRECISION, INTENT(IN) :: fc2_w(fc1_out, fc2_out, 1)             ! (, )
-    DOUBLE PRECISION, INTENT(IN) :: fc2_b(fc2_out, 1, 1)
-    DOUBLE PRECISION, INTENT(IN) :: sequence(seq_len)
-    DOUBLE PRECISION, INTENT(OUT) :: classify(fc2_out)
-		DOUBLE PRECISION :: image(n_channels, window_size)
+    REAL, INTENT(IN) :: conv1_w(conv1_out_ch, n_channels, conv_kernel)  ! (out_channels, in_channels, kernel)
+    REAL, INTENT(IN) :: conv1_b(conv1_out_ch, 1, 1)
+    REAL, INTENT(IN) :: conv2_w(conv2_out_ch, conv1_out_ch, conv_kernel)
+    REAL, INTENT(IN) :: conv2_b(conv2_out_ch, 1, 1)
+    REAL, INTENT(IN) :: conv3_w(conv3_out_ch, conv2_out_ch, conv_kernel)
+    REAL, INTENT(IN) :: conv3_b(conv3_out_ch, 1, 1)
+    REAL, INTENT(IN) :: fc1_w(fc_in, fc1_out, 1)
+    REAL, INTENT(IN) :: fc1_b(fc1_out, 1, 1)
+    REAL, INTENT(IN) :: fc2_w(fc1_out, fc2_out, 1)
+    REAL, INTENT(IN) :: fc2_b(fc2_out, 1, 1)
+    REAL, INTENT(IN) :: sequence(seq_len)
+    REAL, INTENT(OUT) :: classify(fc2_out)
+		REAL :: image(n_channels, window_size)
 
-    DOUBLE PRECISION :: conv1_out(conv1_out_ch, conv1_out_len)
-    DOUBLE PRECISION :: conv2_out(conv2_out_ch, conv2_out_len)
-		DOUBLE PRECISION :: conv3_out(conv3_out_ch, conv3_out_len)
-    DOUBLE PRECISION :: pooled_out(conv3_out_ch, pooled_len)
-		DOUBLE PRECISION :: fc1_in(fc_in)
-    DOUBLE PRECISION :: conv1_col(n_channels * conv_kernel, conv1_out_len)
-    DOUBLE PRECISION :: conv2_col(conv1_out_ch * conv_kernel, conv2_out_len)
-    DOUBLE PRECISION :: conv3_col(conv2_out_ch * conv_kernel, conv3_out_len)
-		DOUBLE PRECISION :: conv1_w_mat(conv1_out_ch, n_channels * conv_kernel)
-		DOUBLE PRECISION :: conv2_w_mat(conv2_out_ch, conv1_out_ch * conv_kernel)
-		DOUBLE PRECISION :: conv3_w_mat(conv3_out_ch, conv2_out_ch * conv_kernel)
-    DOUBLE PRECISION :: A(fc_in, fc1_out), Y(fc1_out)
+    REAL :: conv1_out(conv1_out_ch, conv1_out_len)
+    REAL :: conv2_out(conv2_out_ch, conv2_out_len)
+		REAL :: conv3_out(conv3_out_ch, conv3_out_len)
+    REAL :: pooled_out(conv3_out_ch, pooled_len)
+		REAL :: fc1_in(fc_in)
+    REAL :: conv1_col(n_channels * conv_kernel, conv1_out_len)
+    REAL :: conv2_col(conv1_out_ch * conv_kernel, conv2_out_len)
+    REAL :: conv3_col(conv2_out_ch * conv_kernel, conv3_out_len)
+		REAL :: conv1_w_mat(conv1_out_ch, n_channels * conv_kernel)
+		REAL :: conv2_w_mat(conv2_out_ch, conv1_out_ch * conv_kernel)
+		REAL :: conv3_w_mat(conv3_out_ch, conv2_out_ch * conv_kernel)
+    REAL :: A(fc_in, fc1_out), Y(fc1_out)
     INTEGER :: i, j, k, idx, c
 
-		! --- Reshape flat input sequence into 2D image: (n_channels x window_size)
+		! --- Reshape input 1D flat sequence into 2D image: (n_channels x window_size)
 		! JS.flat() uses row/time-major flattening
 		! ie. sequence = [ch0_t0, ch1_t0, ch2_t0, ch0_t1, ch1_t1, ch2_t1, ..., ch0_t127, ch1_t127, ch2_t127]
 		! Flip the indexing to reconstruct in FORTRAN column/channel-major formatting
@@ -378,15 +348,15 @@ SUBROUTINE classifier(conv1_w, conv1_b, conv2_w, conv2_b, conv3_w, conv3_b, fc1_
 				END DO
 			END DO
 		END DO
-		!DGEMM
-		CALL DGEMM('N', 'N', conv1_out_ch, conv1_out_len, n_channels * conv_kernel, 1.0d0, &
-					 conv1_w_mat, conv1_out_ch, conv1_col, n_channels * conv_kernel, 0.0d0, &
+		!SGEMM
+		CALL SGEMM('N', 'N', conv1_out_ch, conv1_out_len, n_channels * conv_kernel, 1.0e0, &
+					 conv1_w_mat, conv1_out_ch, conv1_col, n_channels * conv_kernel, 0.0e0, &
 					 conv1_out, conv1_out_ch)
 		! Add bias and ReLU
 		DO i = 1, conv1_out_ch
 			DO j = 1, conv1_out_len
 				conv1_out(i, j) = conv1_out(i, j) + conv1_b(i, 1, 1)
-				IF (conv1_out(i, j) < 0.0d0) conv1_out(i, j) = 0.0d0
+				IF (conv1_out(i, j) < 0.0e0) conv1_out(i, j) = 0.0e0
 			END DO
 		END DO
 		
@@ -410,15 +380,15 @@ SUBROUTINE classifier(conv1_w, conv1_b, conv2_w, conv2_b, conv3_w, conv3_b, fc1_
 				END DO
 			END DO
 		END DO
-		! DGEMM
-		CALL DGEMM('N', 'N', conv2_out_ch, conv2_out_len, conv1_out_ch * conv_kernel, 1.0d0, &
-					 conv2_w_mat, conv2_out_ch, conv2_col, conv1_out_ch * conv_kernel, 0.0d0, &
+		! SGEMM
+		CALL SGEMM('N', 'N', conv2_out_ch, conv2_out_len, conv1_out_ch * conv_kernel, 1.0e0, &
+					 conv2_w_mat, conv2_out_ch, conv2_col, conv1_out_ch * conv_kernel, 0.0e0, &
 					 conv2_out, conv2_out_ch)
 		! Add bias and ReLU for conv2 output
 		DO i = 1, conv2_out_ch
 			DO j = 1, conv2_out_len
 				conv2_out(i, j) = conv2_out(i, j) + conv2_b(i, 1, 1)
-				IF (conv2_out(i, j) < 0.0d0) conv2_out(i, j) = 0.0d0
+				IF (conv2_out(i, j) < 0.0e0) conv2_out(i, j) = 0.0e0
 			END DO
 		END DO
 		
@@ -442,15 +412,15 @@ SUBROUTINE classifier(conv1_w, conv1_b, conv2_w, conv2_b, conv3_w, conv3_b, fc1_
 				END DO
 			END DO
 		END DO
-		! DGEMM
-		CALL DGEMM('N', 'N', conv3_out_ch, conv3_out_len, conv2_out_ch * conv_kernel, 1.0d0, &
-					 conv3_w_mat, conv3_out_ch, conv3_col, conv2_out_ch * conv_kernel, 0.0d0, &
+		! SGEMM
+		CALL SGEMM('N', 'N', conv3_out_ch, conv3_out_len, conv2_out_ch * conv_kernel, 1.0e0, &
+					 conv3_w_mat, conv3_out_ch, conv3_col, conv2_out_ch * conv_kernel, 0.0e0, &
 					 conv3_out, conv3_out_ch)
 		! Add bias and ReLU for conv3 output
 		DO i = 1, conv3_out_ch
 			DO j = 1, conv3_out_len
 				conv3_out(i, j) = conv3_out(i, j) + conv3_b(i, 1, 1)
-				IF (conv3_out(i, j) < 0.0d0) conv3_out(i, j) = 0.0d0
+				IF (conv3_out(i, j) < 0.0e0) conv3_out(i, j) = 0.0e0
 			END DO
 		END DO	
 	
@@ -471,15 +441,15 @@ SUBROUTINE classifier(conv1_w, conv1_b, conv2_w, conv2_b, conv3_w, conv3_b, fc1_
 			! END DO	
 		! GAP
 		DO i = 1, conv3_out_ch
-				fc1_in(i) = SUM(pooled_out(i, 1:pooled_len)) / REAL(pooled_len, 8) !double
+				fc1_in(i) = SUM(pooled_out(i, 1:pooled_len)) / REAL(pooled_len, 4) !double->single
 		END DO
 
     A = fc1_w(:, :, 1)
     Y = fc1_b(1:fc1_out, 1, 1)
-    call DGEMV('T', fc_in, fc1_out, 1.0d0, A, fc_in, fc1_in, 1, 1.0d0, Y, 1)
+    call SGEMV('T', fc_in, fc1_out, 1.0e0, A, fc_in, fc1_in, 1, 1.0e0, Y, 1)
 		A(1:fc1_out, 1:fc2_out) = fc2_w(1:fc1_out, 1:fc2_out, 1)
-    Y = MAX(0.0d0, Y)
+    Y = MAX(0.0e0, Y)
 		classify = fc2_b(1:fc2_out, 1, 1)
-    call DGEMV('T', fc1_out, fc2_out, 1.0d0, A, fc1_out, Y, 1, 1.0d0, classify, 1)
+    call SGEMV('T', fc1_out, fc2_out, 1.0e0, A, fc1_out, Y, 1, 1.0e0, classify, 1)
 
 END SUBROUTINE classifier

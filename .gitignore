@@ -1,4 +1,6 @@
 train/*
 !train/train.py
 !train/utils.py
+!train/test.py
+!train/model.py
 *.o
