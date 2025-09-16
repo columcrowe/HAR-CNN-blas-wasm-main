@@ -15,7 +15,7 @@ def main():
   step_size = window_size; #64;
   n_channels = 3
   n_input = window_size #128*3 #28*28
-  n_output = 6 #10
+  n_output = 4 #6 #10
   batch_size = 32
   model = Conv1D_MLP(n_channels, n_input, n_output)#.double() #np.float64 and np.double are same
   floats = load_A("conv1_weight.data", model.conv1.weight.shape)

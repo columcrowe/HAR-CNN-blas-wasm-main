@@ -30,7 +30,9 @@ class Conv1D_MLP(torch.nn.Module):
         self.fc2 = torch.nn.Linear(64, self.n_output)
     def forward(self, x):
         # x shape: (batch_size, n_input)
-        # x = x.unsqueeze(1)                                    # (batch_size, 1, n_input)
+        # x = torch.sqrt(torch.sum(x**2, dim=1)) - 1.0 # ENMO
+        # x = torch.clamp(x, min=0.0)
+        # x = x.unsqueeze(1)                                      # (batch_size, 1, n_input)
         x = x.view(x.size(0), self.n_channels, self.n_input)    # (batch, channels=n_channels, n_input=window_size)
         x = torch.nn.functional.relu(self.conv1(x))             # (batch_size, 64, x1)
         x = torch.nn.functional.relu(self.conv2(x))             # (batch_size, 64, x2)

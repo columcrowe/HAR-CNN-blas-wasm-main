@@ -3,7 +3,8 @@ LFORT_PATH := /root/lfortran/inst/bin
 LFORT_RUNTIME := /root/lfortran/inst/share/lfortran/lib/lfortran_runtime_wasm_emcc.o
 
 SRC := classifier.f90
-OBJ := classifier.o
+OBJ := $(SRC:.f90=.o)
+
 JS_OUT := www/mnist.js
 
 EMCC_FLAGS := \
@@ -18,8 +19,8 @@ EMCC_FLAGS := \
 
 all: $(JS_OUT)
 
-$(OBJ): $(SRC)
-	$(LFORT_PATH)/lfortran -c $< --generate-object-code --rtlib --target=wasm32-unknown-emscripten
+%.o: %.f90
+	$(LFORT_PATH)/lfortran -c $< --generate-object-code --rtlib --target=wasm32-unknown-emscripten -Iparf
 
 $(JS_OUT): $(OBJ)
 	emcc $(OBJ) $(LFORT_RUNTIME) $(EMCC_FLAGS) -o $@

@@ -1,9 +1,10 @@
 document.getElementById('FileInput').addEventListener('change', handleFileUpload);
+let plot;
 const preds = [];
-/* const labelNames = [
-	"light", 
-	"moderate-vigorous", 
-	"sedentary", 
+const labelNames = [
+	"light",
+	"moderate-vigorous",
+	"sedentary",
 	"sleep"
 ];
 const labelColors = {
@@ -11,8 +12,8 @@ const labelColors = {
   "moderate-vigorous":    "#FF0000",  // Red
   "sedentary":   					"#FFB000",  // Yellow
   "sleep": 								"#648FFF"   // Blue  			
-}; */
-const labelNames = [
+};
+/* const labelNames = [
 	"WALKING",
 	"WALKING_UPSTAIRS",
 	"WALKING_DOWNSTAIRS",
@@ -27,7 +28,7 @@ const labelColors = {
   "SITTING": 								"#648FFF",  // Blue
 	"STANDING": 							"#FF7F0E",  // Orange
 	"LAYING":   							"#800080"   // Purple
-};
+}; */
 const n_outputs = labelNames.length;
 const expectedHeader = [
   'acc_x', 'acc_y', 'acc_z',
@@ -66,30 +67,37 @@ async function handleFileUpload(event) {
   const segments = doSegmentation(rows, windowSize = window_size, stepSize = window_size);
   //for (let i = 0; i < segments.length; i++) {
   //    const segment = segments[i];
-	//  const pred = doClassify(segment.flat()); // Classify via WASM
-	//  preds.push({ time: i * step_size, label: pred });
+	//    const pred = doClassify(segment.flat()); // Classify via WASM
+	//    preds.push({ time: i * step_size, label: pred });
   //}
+	drawSignal(rows);
 	async function doClassifyAsync(segments) {
-		const BATCH_SIZE = Math.floor(60/ws);
-		// Process in 1min batches
-		for (let i = 0; i < segments.length; i += BATCH_SIZE) {
-			const batchEnd = Math.min(i + BATCH_SIZE, segments.length);		
+		const update_plt_flag = document.getElementById("live-update");
+		const BATCH_SIZE = 32; //1; //Math.max(1, Math.floor(segments.length/100));
+    for (let i = 0; i < segments.length; i += BATCH_SIZE) {
+			// Process in batches
+			const batchEnd = Math.min(i+BATCH_SIZE, segments.length);
 			for (let j = i; j < batchEnd; j++) {
 				const segment = segments[j];
 				const pred = doClassify(segment.flat()); // Classify via WASM
 				preds.push({ time: j * step_size, label: pred });
-			}		
+			}
 			// Update progress and yield control to browser
 			//console.log(`${batchEnd} / ${segments.length}`);
 			const percent = Math.round((batchEnd / segments.length) * 100);
 			progressBar.value = percent;
 			progressText.textContent = `${batchEnd} / ${segments.length} (${percent}%)`;
 			await new Promise(resolve => setTimeout(resolve, 0));
+			if (update_plt_flag.checked) {
+					plot.redraw();
+			}
+		}
+		if (!update_plt_flag.checked) {
+			plot.redraw();
 		}
 	}
   await doClassifyAsync(segments);
-  drawSignal(rows);
-
+	//drawSignal(rows);
 }
 
 // Function adapted from:
@@ -142,8 +150,8 @@ function drawSignal(rows) {
             (u.cursor.left / rect.width) * nxRange;
           if (nxMin < 0) nxMin = 0;
           let nxMax = nxMin + nxRange;
-          if (nxMax > u.timeArray[timeArray.length - 1])
-            nxMax = u.timeArray[timeArray.length - 1];
+          if (nxMax > u.data[0][u.data[0].length - 1])
+            nxMax = u.data[0][u.data[0].length - 1];
           u.setScale("x", { min: nxMin, max: nxMax });
         },
         { passive: true }
@@ -171,17 +179,17 @@ function drawSignal(rows) {
     series: [
       { label: "time" },
       { 
-        label: "total_acc_x", 
+        label: "acc_x", 
         stroke: "red",
         width: 1
       },
       { 
-        label: "total_acc_y", 
+        label: "acc_y", 
         stroke: "yellow", 
         width: 1
       },
       { 
-        label: "total_acc_z", 
+        label: "acc_z", 
         stroke: "blue",
         width: 1
       }
@@ -196,7 +204,7 @@ function drawSignal(rows) {
 
   const div = document.querySelector("#draw");
   while (div.firstChild) div.removeChild(div.firstChild);
-  const plot = new uPlot(opts, [timeArray, ...[acc_x, acc_y, acc_z]], div);
+  plot = new uPlot(opts, [timeArray, ...[acc_x, acc_y, acc_z]], div);
   
   // Simple manual legend
   const legendDiv = document.createElement("div");

@@ -109,18 +109,18 @@ def convert_cwa_to_csv(input_file):
     time_array = np.asarray(data.get('time'))
     
     #TODO: crop to n hrs for now
-    # n=1;
-    # accel_array = accel_array[0:50*60*60*n,:] 
+    #n=24;
+    #accel_array = accel_array[0:50*60*60*n,:] 
 
     #Resample to resampling_frequency (Hz)
     fs = 50.0;        
     accel_array, time_array = resample_2fast(accel_array, time_array, resampling_frequency=fs)
+    ws=128
        
     df = pd.DataFrame(accel_array, columns=['acc_x', 'acc_y', 'acc_z'])
     filename = f"accsamp.csv"
     filepath = os.path.join(os.getcwd(), filename)   
     #Save to csv in chunks so js doesn't choke on header
-    ws=128
     chunk_size = ws*100 #TODO: hardcoded for now
     for i in range(0, len(df), chunk_size):
         df.iloc[i:i+chunk_size].to_csv(
@@ -131,7 +131,7 @@ def convert_cwa_to_csv(input_file):
             #float_format='%.2f'
         )
     print(f"Saved to {filepath}")
-    #sed -i '1s/.*/total_acc_x,total_acc_y,total_acc_z/' accsamp.csv
+    #sed -i '1s/.*/acc_x,acc_y,acc_z/' accsamp.csv
     
     return
 

@@ -14,9 +14,11 @@
 			<label for="FileInput" class="button-label">Upload File</label>
 			<input type="file" id="FileInput" accept=".csv" style="display: none;" />
 			<progress id="progressBar" value="0" max="100" style="width: 400px;"></progress>
-		  <span id="progressText"></span>		
+		  <span id="progressText"></span>
 		</div>
 	</div>
+	<label style="float: right;"> <input type="checkbox" id="live-update" checked style="float: right;" /> Update Plot </label>
+	
 	<div id="container">
 		<div id="draw"></div> <!-- populated by drawSignal !-->
 		<div id="hist"></div>		

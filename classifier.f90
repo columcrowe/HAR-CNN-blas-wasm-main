@@ -268,7 +268,7 @@ SUBROUTINE classifier(conv1_w, conv1_b, conv2_w, conv2_b, conv3_w, conv3_b, fc1_
     INTEGER, PARAMETER :: stride_length = 1
     INTEGER, PARAMETER :: pool_size = 2
     INTEGER, PARAMETER :: fc1_out = 64
-    INTEGER, PARAMETER :: fc2_out = 6
+    INTEGER, PARAMETER :: fc2_out = 4
     INTEGER, PARAMETER :: conv1_out_len = img_len - conv_kernel + 1
     INTEGER, PARAMETER :: conv2_out_len = conv1_out_len - conv_kernel + 1
     INTEGER, PARAMETER :: conv3_out_len = conv2_out_len - conv_kernel + 1
@@ -314,6 +314,12 @@ SUBROUTINE classifier(conv1_w, conv1_b, conv2_w, conv2_b, conv3_w, conv3_b, fc1_
 				image(i, j) = sequence((j - 1) * n_channels + i)
 			END DO
 		END DO
+
+    ! ! --- ENMO
+		! DO i = 1, window_size
+				! image(1,i) = sqrt( image(1,i)**2 + image(2,i)**2 + image(3,i)**2 ) - 1.0
+				! IF (image(1,i) < 0.0) image(1,i) = 0.0
+		! END DO
 
 			! ! --- Conv1d layer 1 ---
 		! DO i = 1, conv1_out_ch
