@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from scipy.signal import butter, besselap, zpk2ss, ss2tf, lp2lp, lfilter, filtfilt, resample, resample_poly
 import os
+#import json
 
 def resample_2(accel_array, data_time, resampling_frequency=50.0):
     #Resample to resampling_frequency (Hz)
@@ -105,22 +106,22 @@ def convert_cwa_to_csv(input_file):
     data = reader.predict(file=input_file)
 
     # 'accel' key contains acceleration data as (N x 3) ndarray in units of g
-    accel_array = np.asarray(data.get('accel'))
+    accel_array = np.asarray(data.get('accel'), dtype=np.float32)
     time_array = np.asarray(data.get('time'))
     
     #TODO: crop to n hrs for now
-    #n=24;
-    #accel_array = accel_array[0:50*60*60*n,:] 
+    n=36;
+    accel_array = accel_array[0:50*60*60*n,:] 
 
     #Resample to resampling_frequency (Hz)
-    fs = 50.0;        
+    fs = 50.0;
     accel_array, time_array = resample_2fast(accel_array, time_array, resampling_frequency=fs)
     ws=128
        
     df = pd.DataFrame(accel_array, columns=['acc_x', 'acc_y', 'acc_z'])
     filename = f"accsamp.csv"
     filepath = os.path.join(os.getcwd(), filename)   
-    #Save to csv in chunks so js doesn't choke on header
+    #Save to csv in chunks so js doesn't choke on header - must be less than 48hrs at 50Hz too
     chunk_size = ws*100 #TODO: hardcoded for now
     for i in range(0, len(df), chunk_size):
         df.iloc[i:i+chunk_size].to_csv(
@@ -132,6 +133,38 @@ def convert_cwa_to_csv(input_file):
         )
     print(f"Saved to {filepath}")
     #sed -i '1s/.*/acc_x,acc_y,acc_z/' accsamp.csv
+    
+    return
+    
+def convert_cwa_to_bin(input_file):
+    reader = ReadCwa()
+    data = reader.predict(file=input_file)
+
+    # 'accel' key contains acceleration data as (N x 3) ndarray in units of g
+    accel_array = np.asarray(data.get('accel'), dtype=np.float32)
+    time_array = np.asarray(data.get('time'))
+    
+    #TODO: crop to n hrs for now
+    n=36;
+    accel_array = accel_array[0:50*60*60*n,:] 
+
+    #Resample to resampling_frequency (Hz)
+    fs = 50.0;        
+    accel_array, time_array = resample_2fast(accel_array, time_array, resampling_frequency=fs)
+    ws=128
+
+    # save to binary instead
+    filename = f"accsamp.dat"
+    filepath = os.path.join(os.getcwd(), filename)   
+    accel_array.tofile(filepath)
+    # # Save metadata
+    # metadata = {
+        # "n_channels": accel_array.shape[1],
+        # "dtype": "float32",
+        # "n_samples": accel_array.shape[0]
+    # }
+    # with open("meta_data.json", "w") as f:
+        # json.dump(metadata, f)
     
     return
 

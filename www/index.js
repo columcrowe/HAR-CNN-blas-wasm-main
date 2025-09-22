@@ -38,42 +38,96 @@ const sample_freq = 50;
 const window_size = 128;
 const step_size = window_size;
 const n_channels = 3;
+const HeapTypes = {
+  "int8":    { ArrayType: Int8Array,   Heap: () => Module.HEAP8,    n_bytes: 1 },
+  "int16":   { ArrayType: Int16Array,  Heap: () => Module.HEAP16,   n_bytes: 2 },
+  "float32": { ArrayType: Float32Array,Heap: () => Module.HEAPF32,  n_bytes: 4 },
+  "float64": { ArrayType: Float64Array,Heap: () => Module.HEAPF64,  n_bytes: 8 },
+};
+// global data type
+const DATA_TYPE = "float32";
+const T = HeapTypes[DATA_TYPE];
+// helper func
+function allocAndCopy(bytes) {
+  let arr = new T.ArrayType(bytes);
+  let ptr = Module._malloc(arr.byteLength);
+  T.Heap().set(arr, ptr / T.n_bytes);
+  return ptr;
+}
 async function handleFileUpload(event) {
   preds.length = 0; // Clear old predictions
 	
   const file = event.target.files[0];
   if (!file) return;
 
-  const text = await file.text();
+/*   // loading CSV in
+	const text = await file.text();
   const lines = text.trim().split('\n');
-
   // Validate header
   const header = lines[0].split(',').map(h => h.trim());
-
   const headerIsValid = expectedHeader.every((val, i) => val === header[i]);
   if (!headerIsValid) {
     alert("CSV header does not match expected format:\n" + expectedHeader.join(', '));
     return;
   }
-  
   // Parse rows after header
   const rows = lines.slice(1).map(row => row.split(',').map(Number));
-
   if (rows.length < window_size || rows[0].length !== n_channels) {
     alert("CSV must have at least " + window_size + " rows and " + n_channels + " columns.");
     return;
-  }
+  } */
 		
+	// streaming bin file
+	const reader = file.stream().getReader();
+	const rowByteSize = n_channels * T.n_bytes;
+	let unloaded = new Uint8Array(0);
+	let rows = [];
+	let i=0;
+	const BATCH_SIZE = 128;
+	while (true) {
+		const { value: chunk, done } = await reader.read();
+		if (done) break;
+		// browser optimized packet size - force into window of BATCH_SIZE rows
+		const packetBuffer = new Uint8Array(unloaded.length + chunk.length);
+		packetBuffer.set(unloaded, 0);
+		packetBuffer.set(chunk, unloaded.length);
+		let loaded = 0;
+		let windowBuffer = []; //segment
+		while (packetBuffer.length - loaded >= rowByteSize) {
+			const rowBytes = packetBuffer.slice(loaded, loaded + rowByteSize);
+			const row = Array.from(new T.ArrayType(rowBytes.buffer, rowBytes.byteOffset, n_channels));
+			windowBuffer.push(row);
+			loaded += rowByteSize;
+			if (windowBuffer.length === BATCH_SIZE) {
+				rows.push(...windowBuffer);
+				i+=1;
+				//const pred = doClassify(windowBuffer.flat()); // Classify via WASM
+				//preds.push({ time: i * step_size, label: pred });
+				windowBuffer = [];
+			}
+		}
+		unloaded = packetBuffer.slice(loaded); //overload
+		if (windowBuffer.length > 0) rows.push(...windowBuffer);
+	}
+	if (rows.length < window_size || rows[0].length !== n_channels) {
+		alert("BIN must have at least " + window_size + " rows and " + n_channels + " columns.");
+		return;
+	}
+
   const segments = doSegmentation(rows, windowSize = window_size, stepSize = window_size);
   //for (let i = 0; i < segments.length; i++) {
   //    const segment = segments[i];
 	//    const pred = doClassify(segment.flat()); // Classify via WASM
 	//    preds.push({ time: i * step_size, label: pred });
   //}
+	
+	const scale = 1.0//32767.0;
+	const maxVal = 1.0//5.0;
+	rows = rows.map(row => row.map(v => v / (scale/maxVal)));
 	drawSignal(rows);
 	async function doClassifyAsync(segments) {
 		const update_plt_flag = document.getElementById("live-update");
-		const BATCH_SIZE = 32; //1; //Math.max(1, Math.floor(segments.length/100));
+		const BATCH_SIZE = 1; //32; //Math.max(1, Math.floor(segments.length/100));
     for (let i = 0; i < segments.length; i += BATCH_SIZE) {
 			// Process in batches
 			const batchEnd = Math.min(i+BATCH_SIZE, segments.length);
@@ -263,9 +317,7 @@ function doLoadData() {
       let response = await fetch("./conv1_weight.data");
       if (!response.ok) throw new Error(`Problem downloading conv1_weight (${response.status})`);
       let bytes = await response.arrayBuffer();
-      let floats = new Float32Array(bytes);
-      conv1_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, conv1_w_ptr / 4);
+			conv1_w_ptr = allocAndCopy(bytes);
 			//console.log("len:", floats.length);
 			//console.log("first 10:", floats.slice(0,10)); check against test.py
 
@@ -273,75 +325,55 @@ function doLoadData() {
       response = await fetch("./conv1_bias.data");
       if (!response.ok) throw new Error(`Problem downloading conv1_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      conv1_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, conv1_b_ptr / 4);
+      conv1_b_ptr = allocAndCopy(bytes);
 
       // Load conv2 weights
       response = await fetch("./conv2_weight.data");
       if (!response.ok) throw new Error(`Problem downloading conv2_weight (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      conv2_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, conv2_w_ptr / 4);
+      conv2_w_ptr = allocAndCopy(bytes);
 
       // Load conv2 bias
       response = await fetch("./conv2_bias.data");
       if (!response.ok) throw new Error(`Problem downloading conv2_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      conv2_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, conv2_b_ptr / 4);
+      conv2_b_ptr = allocAndCopy(bytes);
 			
       // Load conv3 weights
       response = await fetch("./conv3_weight.data");
       if (!response.ok) throw new Error(`Problem downloading conv3_weight (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      conv3_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, conv3_w_ptr / 4);
+      conv3_w_ptr = allocAndCopy(bytes);
 
       // Load conv3 bias
       response = await fetch("./conv3_bias.data");
       if (!response.ok) throw new Error(`Problem downloading conv3_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      conv3_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, conv3_b_ptr / 4);
+      conv3_b_ptr = allocAndCopy(bytes);
 
       // Load fc1 weights
       response = await fetch("./fc1_weight.data");
       if (!response.ok) throw new Error(`Problem downloading fc1_weight (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      fc1_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, fc1_w_ptr / 4);
+      fc1_w_ptr = allocAndCopy(bytes);
 
       // Load fc1 bias
       response = await fetch("./fc1_bias.data");
       if (!response.ok) throw new Error(`Problem downloading fc1_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      fc1_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, fc1_b_ptr / 4);
+      fc1_b_ptr = allocAndCopy(bytes);
 
       // Load fc2 weights
       response = await fetch("./fc2_weight.data");
       if (!response.ok) throw new Error(`Problem downloading fc2_weight (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      fc2_w_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, fc2_w_ptr / 4);
+      fc2_w_ptr = allocAndCopy(bytes);
 
       // Load fc2 bias
       response = await fetch("./fc2_bias.data");
       if (!response.ok) throw new Error(`Problem downloading fc2_bias (${response.status})`);
       bytes = await response.arrayBuffer();
-      floats = new Float32Array(bytes);
-      fc2_b_ptr = Module._malloc(floats.byteLength);
-      Module.HEAPF32.set(floats, fc2_b_ptr / 4);
-
-      // Ready to start
+      fc2_b_ptr = allocAndCopy(bytes);
 
     } catch (err) {
       console.error(err);
@@ -370,15 +402,15 @@ function doClassify(sequence) {
   }
 
   // Copy data to contiguous Wasm memory
-  const sequence_ptr = Module._malloc(window_size * n_channels * 4);
-  Module.HEAPF32.set(sequence, sequence_ptr / 4); //Module.HEAPF32 and 64 are 1D flat typed arrays
+  const sequence_ptr = Module._malloc(window_size * n_channels * T.n_bytes);
+  T.Heap().set(sequence, sequence_ptr / T.n_bytes); //Module.HEAPF32 and 64 are 1D flat typed arrays
 
   // Call Wasm classifier and store results
-  const out_ptr = Module._malloc(n_outputs*4);
+  const out_ptr = Module._malloc(n_outputs*T.n_bytes);
   Module._classifier(conv1_w_ptr, conv1_b_ptr, conv2_w_ptr, conv2_b_ptr, conv3_w_ptr, conv3_b_ptr, fc1_w_ptr, fc1_b_ptr, fc2_w_ptr, fc2_b_ptr, sequence_ptr, out_ptr);
 
   // Draw results as a histogram
-  const out_bytes = Module.HEAPF32.subarray(out_ptr / 4, (out_ptr / 4) + n_outputs);
+  const out_bytes = T.Heap().subarray(out_ptr / T.n_bytes, (out_ptr / T.n_bytes) + n_outputs);
   //console.log("Output values:", out_bytes);
   //drawHist(out_bytes);
   

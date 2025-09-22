@@ -3,4 +3,5 @@ train/*
 !train/utils.py
 !train/test.py
 !train/model.py
+!train/quantize.py
 *.o
